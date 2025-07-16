@@ -1,0 +1,8 @@
+altair==5.5.0
+networkx==3.2.1
+NEURON==8.0
+numpy==2.0.2
+pandas==2.3.0
+tqdm==4.67.1
+typing_extensions==4.14.0
+vl-convert-python==1.8.0
