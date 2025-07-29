@@ -68,6 +68,95 @@ class CurrentscapePipeline:
             tmax=tmax
         )
 
+    @classmethod
+    def current_injection(cls, gcar, gkslow, gcar_trunk, gkslow_trunk, target, amp, dur, delay, tstop):
+        """
+        Alternative constructor for a current injection experiment.
+
+        Args:
+            output_dir (str): Directory to save output.
+            filename (str): Output PDF filename.
+            target (str): Target compartment.
+            amp (float): Amplitude of injected current (nA).
+            dur (float): Duration of current injection (ms).
+            delay (float): Delay before current injection starts (ms).
+            tstop (float): Total simulation time (ms).
+        """
+        instance = cls(
+            output_dir=None,
+            cluster_seed=None,
+            random_seed=None,
+            e_input=None,
+            i_input=None,
+            simulation_time=tstop,
+            target=target,
+            partitioning_strategy=None,
+            filename=None,
+            tmin=None,
+            tmax=None
+        )
+
+        # Store current injection protocol in the instance for later use
+        instance.current_injection_protocol = {
+            "gcar": gcar,
+            "gkslow": gkslow,
+            "gcar_trunk": gcar_trunk,
+            "gkslow_trunk": gkslow_trunk,
+            "amplitude": amp,
+            "duration": dur,
+            "delay": delay
+        }
+
+        return instance
+
+    def run_current_injection(self):
+        """
+        Runs a current injection simulation using the defined injection protocol
+        and stores results in self.simulation_data and self.taxis.
+        """
+        from simulator.model.ca1_model import CA1
+        from simulator.model.ca1_functions import init_activeCA1
+        import simulator.model.simulation as simulation
+        from neuron import h
+
+        if not hasattr(self, "current_injection_protocol"):
+            raise ValueError("Current injection protocol not found. Use current_injection constructor.")
+
+        # Unpack current injection parameters
+        gcar = self.current_injection_protocol["gcar"]
+        gkslow = self.current_injection_protocol["gkslow"]
+        gcar_trunk = self.current_injection_protocol["gcar_trunk"]
+        gkslow_trunk = self.current_injection_protocol["gkslow_trunk"]
+        amp = self.current_injection_protocol["amplitude"]
+        dur = self.current_injection_protocol["duration"]
+        delay = self.current_injection_protocol["delay"]
+
+        # Create and initialize the model
+        model = CA1()
+        init_activeCA1(model, gcar, gkslow, gcar_trunk, gkslow_trunk)
+
+        # First check if target is 'soma'
+        if self.target == "soma" and hasattr(model, "soma"):
+            sec = model.soma
+        else:
+            # Then try to find a matching dendritic section by name
+            try:
+                sec = next(d for d in model.dends if d.name() == self.target)
+            except StopIteration:
+                raise ValueError(
+                    f"Target section '{self.target}' not found. "
+                    f"Must be 'soma' or a valid section name from model.dends."
+                )
+        # Set up IClamp
+        model.stim = h.IClamp(sec(0.5))
+        model.stim.delay = delay
+        model.stim.dur = dur
+        model.stim.amp = amp
+
+        # Run the simulation and save results
+        self.simulation_data = simulation.simulate(model, self.simulation_time)
+        self.taxis = self.simulation_data['taxis']
+        return self.simulation_data
 
     def run_simulation(self):
         """
@@ -206,6 +295,6 @@ class CurrentscapePipeline:
         does not take any arguments and does not return any value.
         """
         self.run_simulation()
-        self.preprocess()
-        self.calculate_currentscape()
-        self.visualize()
+        # self.preprocess()
+        # self.calculate_currentscape()
+        # self.visualize()
