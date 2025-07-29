@@ -6,3 +6,4 @@ pandas==2.3.0
 tqdm==4.67.1
 typing_extensions==4.14.0
 vl-convert-python==1.8.0
+optuna==4.4.0
